@@ -1,30 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 void main() {
   runApp(const TodoApp());
 }
 
-// classe qui représente la structure de la donnée
+// Classe qui représente la structure de la donnée
 class Todo {
-  Todo({required this.name, required this.completed});
+  Todo({required this.name, required this.completed, required this.id});
+  String id;
   String name;
   bool completed;
 }
 
-// widget qui lance l'application
+// Widget qui lance l'application
 class TodoApp extends StatelessWidget {
   const TodoApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Todo Manager',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const TodoList(title: 'Flutter Demo Home Page'),
+      home: const TodoList(title: 'TodoList App'),
     );
   }
 }
@@ -36,16 +37,19 @@ class TodoList extends StatefulWidget {
   State<TodoList> createState() => _TodoListState();
 }
 
-// le widget qui va recevoir les tâches listées
+// Le widget qui va recevoir les tâches listées
 class TodoItem extends StatelessWidget {
-  TodoItem(
-      {required this.todo,
-      required this.onTodoChanged,
-      required this.removeTodo})
-      : super(key: ObjectKey(todo));
+  TodoItem({
+    required this.todo,
+    required this.onTodoChanged,
+    required this.callUpdateForm,
+    required this.removeTodo,
+  }) : super(key: ObjectKey(todo));
+
   final Todo todo;
   final void Function(Todo todo) onTodoChanged;
   final void Function(Todo todo) removeTodo;
+  final void Function(Todo todo) callUpdateForm;
 
   TextStyle? _getTextStyle(bool checked) {
     if (!checked) return null;
@@ -82,65 +86,62 @@ class TodoItem extends StatelessWidget {
             removeTodo(todo);
           },
         ),
+        IconButton(
+          iconSize: 30,
+          icon: const Icon(
+            Icons.update,
+            color: Colors.lightGreen,
+          ),
+          alignment: Alignment.centerRight,
+          onPressed: () {
+            callUpdateForm(todo);
+          },
+        ),
       ]),
     );
   }
 }
 
-// la classe qui représente la state en question
+// Le widget qui définit l'état de l'application
 class _TodoListState extends State<TodoList> {
   final List<Todo> _todos = <Todo>[];
+
   final TextEditingController _textFieldController = TextEditingController();
+  var uuid = const Uuid(); // Instance de Uuid
 
-  void _addTodoItem(String name) {
-    setState(() {
-      {
-        _todos.add(Todo(name: name, completed: false));
-      }
-    });
+  // Fonction pour générer un UUID
+  String _generateUuid() {
+    return uuid.v4(); // Générer un nouvel UUID (version 4)
   }
 
-  void _handleTodoChange(Todo todo) {
-    setState(() {
-      todo.completed = !todo.completed;
-    });
-  }
+  // Fonction pour appeler un formulaire de modification
+  Future<void> callUpdateForm(Todo todo) async {
+    TextEditingController updateController = TextEditingController();
+    updateController.text =
+        todo.name; // Pré-remplir le champ avec le nom actuel
 
-  Future<void> _displayDialog() async {
-    return showDialog<void>(
+    await showDialog(
       context: context,
-      // T: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Add a todo'),
+          title: const Text('Update Todo'),
           content: TextField(
-            controller: _textFieldController,
-            decoration: const InputDecoration(hintText: 'Type your todo'),
-            autofocus: true,
+            controller: updateController,
+            decoration: const InputDecoration(hintText: 'Update your todo'),
           ),
           actions: <Widget>[
             OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
               onPressed: () {
                 Navigator.of(context).pop();
               },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
               onPressed: () {
+                _updateTodoItem(todo.id, updateController.text);
                 Navigator.of(context).pop();
-                _addTodoItem(_textFieldController.text);
               },
-              child: const Text('Add'),
+              child: const Text('Update'),
             ),
           ],
         );
@@ -148,10 +149,59 @@ class _TodoListState extends State<TodoList> {
     );
   }
 
+  // Fonction pour ajouter une nouvelle tâche
+  void _addTodoItem(String name) {
+    setState(() {
+      _todos.add(Todo(id: _generateUuid(), name: name, completed: false));
+    });
+  }
+
+  // Fonction pour mettre à jour une tâche
+  void _updateTodoItem(String id, String name) {
+    setState(() {
+      var index = _todos.indexWhere((todo) => todo.id == id);
+      if (index != -1) {
+        _todos[index].name = name;
+      }
+    });
+  }
+
+  // Fonction pour changer l'état de la tâche
+  void _handleTodoChange(Todo todo) {
+    setState(() {
+      todo.completed = !todo.completed;
+    });
+  }
+
+  // Fonction pour supprimer une tâche
   void _deleteTodo(Todo todo) {
     setState(() {
-      _todos.removeWhere((element) => element.name == todo.name);
+      _todos.removeWhere((element) => element.id == todo.id);
     });
+  }
+
+  // Fonction pour afficher la liste des tâches si les tâches existent
+  Widget displayList() {
+    if (_todos.isNotEmpty) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        children: _todos.map((Todo todo) {
+          return TodoItem(
+            todo: todo,
+            onTodoChanged: _handleTodoChange,
+            removeTodo: _deleteTodo,
+            callUpdateForm: callUpdateForm,
+          );
+        }).toList(),
+      );
+    } else {
+      return const Center(
+        child: Text(
+          "Aucune donnée à afficher.",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      );
+    }
   }
 
   @override
@@ -161,22 +211,45 @@ class _TodoListState extends State<TodoList> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        children: _todos.map((Todo todo) {
-          return TodoItem(
-              todo: todo,
-              onTodoChanged: _handleTodoChange,
-              removeTodo: _deleteTodo);
-        }).toList(),
-      ),
+      body: displayList(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await _displayDialog();
         },
         tooltip: 'Add',
         child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      ),
+    );
+  }
+
+  // Fonction pour afficher la boîte de dialogue d'ajout
+  Future<void> _displayDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add a todo'),
+          content: TextField(
+            controller: _textFieldController,
+            decoration: const InputDecoration(hintText: 'Type your todo'),
+          ),
+          actions: <Widget>[
+            OutlinedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _addTodoItem(_textFieldController.text);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
