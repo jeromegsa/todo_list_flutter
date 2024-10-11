@@ -1,16 +1,16 @@
-# todo_list_v2
+// Définir une classe pour les objets
+  class Person {
+    String email;
+    String password;
 
-A new Flutter project.
+    Person(this.email, this.password);
 
-## Getting Started
+   
+  }
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+  // Créer une liste d'objets Person
+  List<Person> people = [
+    Person('baba@gmail.com', "1234"),
+    Person('Bob@gmail.com', "1234"),
+    Person('tonton@gmail.com',"1234")
+  ];
